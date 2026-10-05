@@ -1,7 +1,8 @@
 /* ==========================================================================
-   QR Studio · lógica
-   O QR é calculado pela biblioteca qrcode-generator (vendor/qrcode.min.js).
-   O desenho (canvas/SVG) é feito aqui, para controlar cores e estilo.
+   Gerador de QR Code · lógica
+   A matriz do QR é calculada pela biblioteca qrcode-generator
+   (vendor/qrcode.min.js). O desenho (canvas e SVG), o logo e a exportação
+   são feitos aqui.
    ========================================================================== */
 (() => {
   'use strict';
@@ -9,28 +10,38 @@
   const $ = (id) => document.getElementById(id);
 
   const PALETTES = [
-    { name: 'Clássico',    fg: '#111827', bg: '#ffffff' },
-    { name: 'Índigo',      fg: '#3730a3', bg: '#eef2ff' },
-    { name: 'Floresta',    fg: '#065f46', bg: '#ecfdf5' },
-    { name: 'Pôr do sol',  fg: '#9a3412', bg: '#fff7ed' },
-    { name: 'Oceano',      fg: '#0c4a6e', bg: '#f0f9ff' },
-    { name: 'Rosa',        fg: '#9d174d', bg: '#fdf2f8' },
-    { name: 'Invertido',   fg: '#ffffff', bg: '#111827' },
+    { name: 'Preto e branco', fg: '#16140f', bg: '#ffffff' },
+    { name: 'Azul-marinho',   fg: '#1e3a5f', bg: '#f1f5fa' },
+    { name: 'Verde-musgo',    fg: '#2f4a2f', bg: '#f3f6ee' },
+    { name: 'Terracota',      fg: '#8f3b1b', bg: '#fbf3ea' },
+    { name: 'Vinho',          fg: '#6d1f3a', bg: '#faf1f3' },
+    { name: 'Grafite',        fg: '#2b2b2b', bg: '#ecece8' },
+    { name: 'Invertido',      fg: '#ffffff', bg: '#1a1a17' },
   ];
 
-  const MARGIN = 3;          // borda branca, em "módulos" (quadradinhos)
+  const MARGIN = 3;                 // borda ao redor, em módulos (quadradinhos)
+  const LOGO_MAX_PX = 512;          // o logo é reduzido a, no máximo, isto
+  const LOGO_MAX_BYTES = 10 * 1024 * 1024;
+  const LOGO_PAD = 0.1;             // respiro entre o logo e a borda do fundo dele
   const HISTORY_KEY = 'qr-history';
   const HISTORY_MAX = 6;
 
   const state = {
     type: 'url',
-    fg: '#1e1b4b',
+    fg: '#16140f',
     bg: '#ffffff',
     style: 'rounded',
-    size: 512,
-    ec: 'M',
-    current: null,           // { payload, matrix } do QR atual
+    size: 1024,
+    ec: 'M',                        // escolha da pessoa
+    logo: null,                     // { canvas, dataUrl, name, w, h }
+    logoSize: 0.2,                  // fração da largura da área de dados
+    logoShape: 'rounded',
+    logoFit: 'cover',
+    current: null,                  // { payload, matrix, ec }
   };
+
+  // sem isto, acentos e emojis saem corrompidos (o padrão da biblioteca é 1 byte por letra)
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
 
   /* ---------- utilidades ---------- */
 
@@ -50,7 +61,7 @@
     el.textContent = msg;
     el.classList.add('is-visible');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2400);
+    toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2600);
   }
 
   function hexToRgb(hex) {
@@ -69,7 +80,7 @@
     return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
   }
 
-  /* ---------- conteúdo (payload) ---------- */
+  /* ---------- conteúdo ---------- */
 
   function normalizeUrl(raw) {
     const v = raw.trim();
@@ -102,8 +113,7 @@
     const sec = $('wifi-sec').value;
     const pass = sec === 'nopass' ? '' : $('wifi-pass').value;
     const hidden = $('wifi-hidden').checked ? 'true' : 'false';
-    const value = `WIFI:T:${sec};S:${escapeWifi(ssid)};P:${escapeWifi(pass)};H:${hidden};;`;
-    return { value, label: 'Wi-Fi: ' + ssid };
+    return { value: `WIFI:T:${sec};S:${escapeWifi(ssid)};P:${escapeWifi(pass)};H:${hidden};;`, label: 'Wi-Fi: ' + ssid };
   }
 
   function showUrlError(msg) {
@@ -114,10 +124,7 @@
     $('url').setAttribute('aria-invalid', msg ? 'true' : 'false');
   }
 
-  /* ---------- geração do QR ---------- */
-
-  // sem isto, acentos e emojis saem corrompidos (o padrão da biblioteca é 1 byte por letra)
-  qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+  /* ---------- matriz e geometria ---------- */
 
   function makeMatrix(text, ec) {
     const qr = qrcode(0, ec);          // 0 = tamanho automático
@@ -133,14 +140,34 @@
     return m;
   }
 
-  // Lista de formas a desenhar, em unidades de módulo. Serve para canvas e SVG.
-  function buildShapes(matrix, style) {
+  // O QR sempre usa resistência máxima quando há logo: é ela que compensa a área coberta.
+  const effectiveEc = () => (state.logo ? 'H' : state.ec);
+
+  // Caixa do logo, em unidades de módulo (o QR inteiro mede n + 2*MARGIN).
+  function logoGeometry(n, o) {
+    if (!o.logo) return null;
+    const L = o.logoSize * n;
+    return { x: MARGIN + (n - L) / 2, y: MARGIN + (n - L) / 2, L, shape: o.logoShape, fit: o.logoFit };
+  }
+
+  // o módulo (célula 1x1 em x,y) encosta na área do logo?
+  function overlapsLogo(x, y, g) {
+    if (g.shape === 'circle') {
+      const cx = g.x + g.L / 2, cy = g.y + g.L / 2;
+      const nx = Math.max(x, Math.min(cx, x + 1)), ny = Math.max(y, Math.min(cy, y + 1));
+      return Math.hypot(nx - cx, ny - cy) < g.L / 2;
+    }
+    return x + 1 > g.x && x < g.x + g.L && y + 1 > g.y && y < g.y + g.L;
+  }
+
+  // Lista de formas em unidades de módulo; serve ao canvas e ao SVG.
+  function buildShapes(matrix, style, geom) {
     const n = matrix.length;
     const shapes = [];
     const inFinder = (r, c) =>
       (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
 
-    // os 3 "olhos" do canto são sempre desenhados inteiros, para manter a leitura
+    // os 3 "olhos" dos cantos são sempre desenhados inteiros, para manter a leitura
     const eye = (r0, c0) => {
       const x = c0 + MARGIN, y = r0 + MARGIN;
       const rad = style === 'square' ? 0 : style === 'dots' ? 3.5 : 2;
@@ -154,6 +181,7 @@
       for (let c = 0; c < n; c++) {
         if (!matrix[r][c] || inFinder(r, c)) continue;
         const x = c + MARGIN, y = r + MARGIN;
+        if (geom && overlapsLogo(x, y, geom)) continue;   // abre espaço limpo para o logo
         if (style === 'dots') shapes.push({ t: 'circle', cx: x + 0.5, cy: y + 0.5, rad: 0.46, k: 'fg' });
         else if (style === 'rounded') shapes.push({ t: 'rect', x, y, w: 1, h: 1, r: 0.32, k: 'fg' });
         else shapes.push({ t: 'rect', x, y, w: 1, h: 1, r: 0, k: 'fg', snap: true });
@@ -162,8 +190,39 @@
     return { shapes, total: n + MARGIN * 2 };
   }
 
+  /* ---------- desenho em canvas ---------- */
+
+  function pathShape(ctx, shape, x, y, s) {
+    ctx.beginPath();
+    if (shape === 'circle') ctx.arc(x + s / 2, y + s / 2, s / 2, 0, Math.PI * 2);
+    else if (shape === 'rounded') ctx.roundRect(x, y, s, s, s * 0.22);
+    else ctx.rect(x, y, s, s);
+  }
+
+  function drawImageFit(ctx, img, x, y, s, fit) {
+    const iw = img.width, ih = img.height;
+    const k = fit === 'cover' ? Math.max(s / iw, s / ih) : Math.min(s / iw, s / ih);
+    const w = iw * k, h = ih * k;
+    ctx.drawImage(img, x + (s - w) / 2, y + (s - h) / 2, w, h);
+  }
+
+  function drawLogo(ctx, u, g, opts) {
+    // fundo sólido do logo (cor do fundo do QR), para o logo não "boiar" sobre pontos
+    ctx.fillStyle = opts.bg;
+    pathShape(ctx, g.shape, g.x * u, g.y * u, g.L * u);
+    ctx.fill();
+    const pad = g.L * LOGO_PAD, s = (g.L - pad * 2) * u;
+    const x = (g.x + pad) * u, y = (g.y + pad) * u;
+    ctx.save();
+    pathShape(ctx, g.shape, x, y, s);
+    ctx.clip();
+    drawImageFit(ctx, opts.logo.canvas, x, y, s, g.fit);
+    ctx.restore();
+  }
+
   function drawCanvas(canvas, px, matrix, opts) {
-    const { shapes, total } = buildShapes(matrix, opts.style);
+    const geom = logoGeometry(matrix.length, opts);
+    const { shapes, total } = buildShapes(matrix, opts.style, geom);
     canvas.width = px;
     canvas.height = px;
     const ctx = canvas.getContext('2d');
@@ -189,26 +248,45 @@
         ctx.fillRect(s.x * u, s.y * u, s.w * u, s.h * u);
       }
     }
+    if (geom) drawLogo(ctx, u, geom, opts);
+  }
+
+  /* ---------- SVG ---------- */
+
+  const f3 = (v) => +v.toFixed(3);
+
+  function svgShape(shape, x, y, s, extra = '') {
+    if (shape === 'circle') return `<circle cx="${f3(x + s / 2)}" cy="${f3(y + s / 2)}" r="${f3(s / 2)}"${extra}/>`;
+    const rx = shape === 'rounded' ? ` rx="${f3(s * 0.22)}"` : '';
+    return `<rect x="${f3(x)}" y="${f3(y)}" width="${f3(s)}" height="${f3(s)}"${rx}${extra}/>`;
   }
 
   function buildSvg(matrix, opts, px) {
-    const { shapes, total } = buildShapes(matrix, opts.style);
-    const f = (v) => +v.toFixed(3);
+    const geom = logoGeometry(matrix.length, opts);
+    const { shapes, total } = buildShapes(matrix, opts.style, geom);
     let body = '';
     for (const s of shapes) {
       const fill = s.k === 'fg' ? opts.fg : opts.bg;
-      if (s.t === 'circle') body += `<circle cx="${f(s.cx)}" cy="${f(s.cy)}" r="${f(s.rad)}" fill="${fill}"/>`;
-      else body += `<rect x="${f(s.x)}" y="${f(s.y)}" width="${f(s.w)}" height="${f(s.h)}"${s.r ? ` rx="${f(s.r)}"` : ''} fill="${fill}"${s.snap ? ' shape-rendering="crispEdges"' : ''}/>`;
+      if (s.t === 'circle') body += `<circle cx="${f3(s.cx)}" cy="${f3(s.cy)}" r="${f3(s.rad)}" fill="${fill}"/>`;
+      else body += `<rect x="${f3(s.x)}" y="${f3(s.y)}" width="${f3(s.w)}" height="${f3(s.h)}"${s.r ? ` rx="${f3(s.r)}"` : ''} fill="${fill}"${s.snap ? ' shape-rendering="crispEdges"' : ''}/>`;
     }
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${px}" height="${px}"><rect width="${total}" height="${total}" fill="${opts.bg}"/>${body}</svg>`;
+    let defs = '';
+    if (geom) {
+      const pad = geom.L * LOGO_PAD, s = geom.L - pad * 2, x = geom.x + pad, y = geom.y + pad;
+      defs = `<defs><clipPath id="logo-clip">${svgShape(geom.shape, x, y, s)}</clipPath></defs>`;
+      body += svgShape(geom.shape, geom.x, geom.y, geom.L, ` fill="${opts.bg}"`);
+      const par = geom.fit === 'cover' ? 'xMidYMid slice' : 'xMidYMid meet';
+      body += `<image href="${opts.logo.dataUrl}" x="${f3(x)}" y="${f3(y)}" width="${f3(s)}" height="${f3(s)}" preserveAspectRatio="${par}" clip-path="url(#logo-clip)"/>`;
+    }
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${px}" height="${px}">${defs}<rect width="${total}" height="${total}" fill="${opts.bg}"/>${body}</svg>`;
   }
 
   /* ---------- atualização da tela ---------- */
 
   function setStatus(kind, text) {
-    const chip = $('chip-status');
-    chip.textContent = text;
-    chip.className = 'chip' + (kind ? ' is-' + kind : '');
+    const el = $('chip-status');
+    el.textContent = text;
+    el.dataset.state = kind || 'idle';
   }
 
   function setButtons(enabled) {
@@ -226,25 +304,55 @@
     el.textContent = msg;
   }
 
+  function syncEcControl() {
+    const sel = $('ec');
+    if (state.logo) {
+      sel.value = 'H';
+      sel.disabled = true;
+      $('ec-hint').textContent = 'Fixada em máxima enquanto houver logo, para o QR Code continuar legível.';
+    } else {
+      sel.value = state.ec;
+      sel.disabled = false;
+      $('ec-hint').textContent = 'Quanto maior, mais o QR Code ainda funciona se for riscado ou sujo, mas ele fica mais denso.';
+    }
+  }
+
+  function updateScanHint() {
+    $('scan-hint').textContent = state.logo
+      ? 'Com logo, escaneie com mais de um celular antes de imprimir.'
+      : 'Escaneie com o celular antes de imprimir.';
+  }
+
   function render() {
     updateContrastNotice();
+    updateScanHint();
     const p = getPayload();
     const canvas = $('canvas');
     $('gen-error').hidden = true;
 
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
     if (p.empty) {
+      // sem conteúdo: mostra um QR Code de exemplo bem apagado, só para dar forma à área
       state.current = null;
-      canvas.hidden = true;
+      drawCanvas(canvas, Math.round(360 * dpr), makeMatrix('https://exemplo.com.br', 'M'),
+        { fg: '#16140f', bg: '#ffffff', style: 'rounded', logo: null });
+      canvas.hidden = false;
+      canvas.classList.add('is-ghost');
+      canvas.setAttribute('aria-hidden', 'true');
       $('empty').hidden = false;
       setButtons(false);
-      setStatus('', 'Aguardando');
+      setStatus('idle', 'Aguardando');
       return;
     }
 
+    canvas.classList.remove('is-ghost');
+    canvas.removeAttribute('aria-hidden');
+
     try {
-      const matrix = makeMatrix(p.value, state.ec);
-      state.current = { payload: p, matrix };
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const ec = effectiveEc();
+      const matrix = makeMatrix(p.value, ec);
+      state.current = { payload: p, matrix, ec };
       drawCanvas(canvas, Math.round(360 * dpr), matrix, state);
       canvas.hidden = false;
       $('empty').hidden = true;
@@ -257,12 +365,103 @@
       setButtons(false);
       setStatus('error', 'Erro');
       const g = $('gen-error');
-      g.textContent = 'Conteúdo grande demais para um QR Code. Tente reduzir o texto ou a resistência a danos.';
+      g.textContent = 'Conteúdo grande demais para um QR Code' + (state.logo ? ' com logo (a resistência máxima reduz o espaço)' : '') + '. Tente reduzir o texto.';
       g.hidden = false;
     }
   }
 
   const renderSoon = debounce(render, 120);
+
+  /* ---------- logo ---------- */
+
+  function showLogoError(msg) {
+    const el = $('logo-error');
+    el.hidden = !msg;
+    el.textContent = msg;
+  }
+
+  function loadImage(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode')); };
+      img.src = url;
+    });
+  }
+
+  async function setLogoFile(file) {
+    showLogoError('');
+    if (!file) return;
+    if (!/^image\/(png|jpeg|webp|gif|svg\+xml)$/.test(file.type)) {
+      return showLogoError('Esse tipo de arquivo não funciona. Use PNG, JPG, WebP, GIF ou SVG.');
+    }
+    if (file.size > LOGO_MAX_BYTES) return showLogoError('A imagem é grande demais (máximo 10 MB).');
+
+    try {
+      const img = await loadImage(file);
+      const w0 = img.naturalWidth || LOGO_MAX_PX, h0 = img.naturalHeight || LOGO_MAX_PX;
+      const k = Math.min(1, LOGO_MAX_PX / Math.max(w0, h0));
+      // SVG sem tamanho próprio: usa uma base quadrada
+      const scale = (img.naturalWidth ? k : 1);
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w0 * scale));
+      c.height = Math.max(1, Math.round(h0 * scale));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      state.logo = { canvas: c, dataUrl: c.toDataURL('image/png'), name: file.name, w: w0, h: h0 };
+    } catch (e) {
+      return showLogoError('Não consegui abrir essa imagem. Tente outro arquivo.');
+    }
+    applyLogoUi();
+    render();
+  }
+
+  function removeLogo() {
+    state.logo = null;
+    $('logo-file').value = '';
+    showLogoError('');
+    applyLogoUi();
+    render();
+  }
+
+  function applyLogoUi() {
+    const has = !!state.logo;
+    $('logo-drop').hidden = has;
+    $('logo-file-row').hidden = !has;
+    $('logo-opts').hidden = !has;
+    if (has) {
+      $('logo-thumb').src = state.logo.dataUrl;
+      $('logo-name').textContent = state.logo.name;
+      $('logo-dim').textContent = `${state.logo.w} × ${state.logo.h} px`;
+    }
+    syncEcControl();
+  }
+
+  function setupLogo() {
+    const input = $('logo-file');
+    input.addEventListener('change', () => setLogoFile(input.files[0]));
+    $('logo-remove').addEventListener('click', removeLogo);
+
+    // arrastar e soltar
+    const area = $('logo-area');
+    ['dragenter', 'dragover'].forEach((ev) => area.addEventListener(ev, (e) => {
+      e.preventDefault(); $('logo-drop').classList.add('is-over');
+    }));
+    ['dragleave', 'drop'].forEach((ev) => area.addEventListener(ev, (e) => {
+      e.preventDefault(); $('logo-drop').classList.remove('is-over');
+    }));
+    area.addEventListener('drop', (e) => setLogoFile(e.dataTransfer.files[0]));
+
+    $('logo-size').addEventListener('input', (e) => {
+      state.logoSize = +e.target.value / 100;
+      $('logo-size-out').textContent = e.target.value + '%';
+      renderSoon();
+    });
+    document.querySelectorAll('input[name="logoshape"]').forEach((r) =>
+      r.addEventListener('change', () => { state.logoShape = r.value; render(); }));
+    document.querySelectorAll('input[name="logofit"]').forEach((r) =>
+      r.addEventListener('change', () => { state.logoFit = r.value; render(); }));
+  }
 
   /* ---------- exportar ---------- */
 
@@ -291,7 +490,7 @@
       if (!blob) return toast('Não foi possível gerar a imagem.');
       download(blob, fileBase() + '.png');
       saveHistory();
-      toast('PNG baixado!');
+      toast('PNG baixado.');
     }, 'image/png');
   }
 
@@ -300,7 +499,7 @@
     const svg = buildSvg(state.current.matrix, state, state.size);
     download(new Blob([svg], { type: 'image/svg+xml' }), fileBase() + '.svg');
     saveHistory();
-    toast('SVG baixado!');
+    toast('SVG baixado.');
   }
 
   async function onCopy() {
@@ -310,20 +509,20 @@
       const blob = await new Promise((res) => exportCanvas().toBlob(res, 'image/png'));
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       saveHistory();
-      toast('Imagem copiada!');
+      toast('Imagem copiada.');
     } catch (e) {
-      toast('Seu navegador não permite copiar. Use "Baixar PNG".');
+      toast('Seu navegador não permite copiar. Use “Baixar PNG”.');
     }
   }
 
-  /* ---------- histórico ---------- */
+  /* ---------- histórico (o logo nunca é guardado) ---------- */
 
   function readHistory() {
     try { return JSON.parse(safe.get(HISTORY_KEY) || '[]'); } catch (e) { return []; }
   }
 
   function snapshot() {
-    const base = { type: state.type, label: state.current.payload.label, fg: state.fg, bg: state.bg, style: state.style, ec: state.ec };
+    const base = { type: state.type, label: state.current.payload.label, fg: state.fg, bg: state.bg, style: state.style, ec: state.ec, hadLogo: !!state.logo };
     if (state.type === 'url') base.url = $('url').value;
     else if (state.type === 'text') base.text = $('text').value;
     else base.wifi = { ssid: $('wifi-ssid').value, pass: $('wifi-pass').value, sec: $('wifi-sec').value, hidden: $('wifi-hidden').checked };
@@ -370,8 +569,10 @@
     }
     setColors(item.fg, item.bg);
     setStyle(item.style);
-    $('ec').value = item.ec; state.ec = item.ec;
+    state.ec = item.ec;
+    syncEcControl();
     render();
+    if (item.hadLogo && !state.logo) toast('Este QR Code tinha logo. Por privacidade, o logo não é guardado: escolha a imagem de novo.');
     window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }
 
@@ -411,8 +612,7 @@
   function syncWifiPass() {
     const open = $('wifi-sec').value === 'nopass';
     $('wifi-pass').disabled = open;
-    if (open) $('wifi-pass').placeholder = 'Rede aberta, não precisa de senha';
-    else $('wifi-pass').placeholder = 'Deixe vazio se a rede for aberta';
+    $('wifi-pass').placeholder = open ? 'Rede aberta: não precisa de senha' : 'Deixe vazio se a rede for aberta';
   }
 
   function updateCount() { $('text-count').textContent = `${$('text').value.length} / 1000`; }
@@ -427,9 +627,8 @@
       inp.type = 'radio'; inp.name = 'palette'; inp.value = i;
       inp.setAttribute('aria-label', p.name);
       const dot = document.createElement('span'); dot.className = 'swatch__dot';
-      const a = document.createElement('i'); a.style.background = p.fg;
-      const b = document.createElement('i'); b.style.background = p.bg;
-      dot.append(a, b);
+      dot.style.setProperty('--a', p.fg);
+      dot.style.setProperty('--b', p.bg);
       l.append(inp, dot); wrap.appendChild(l);
     });
     wrap.addEventListener('change', (e) => {
@@ -441,8 +640,8 @@
   function setupTabs() {
     const tabs = [...document.querySelectorAll('.tab')];
     tabs.forEach((t) => t.addEventListener('click', () => { setType(t.dataset.type); render(); }));
-    // navegação por setas, como pede o padrão WAI-ARIA
-    $('panel-url').parentElement.querySelector('.tabs').addEventListener('keydown', (e) => {
+    // setas, Home e End, como pede o padrão WAI-ARIA para abas
+    document.querySelector('.tabs').addEventListener('keydown', (e) => {
       const i = tabs.findIndex((t) => t.getAttribute('aria-selected') === 'true');
       let n = i;
       if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
@@ -455,13 +654,19 @@
     });
   }
 
+  function currentTheme() {
+    return document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }
+
   function setupTheme() {
-    $('themeToggle').addEventListener('click', () => {
-      const root = document.documentElement;
-      const current = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      const next = current === 'dark' ? 'light' : 'dark';
-      root.dataset.theme = next;
+    const btn = $('themeToggle');
+    const label = () => { btn.textContent = currentTheme() === 'dark' ? 'Tema claro' : 'Tema escuro'; };
+    label();
+    btn.addEventListener('click', () => {
+      const next = currentTheme() === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
       safe.set('qr-theme', next);
+      label();
     });
   }
 
@@ -469,6 +674,7 @@
     buildSwatches();
     setupTabs();
     setupTheme();
+    setupLogo();
     setColors(state.fg, state.bg);
 
     ['url', 'text', 'wifi-ssid', 'wifi-pass'].forEach((id) => $(id).addEventListener('input', renderSoon));
@@ -499,6 +705,7 @@
     $('clear-history').addEventListener('click', () => { safe.set(HISTORY_KEY, '[]'); renderHistory(); toast('Histórico limpo.'); });
 
     syncWifiPass();
+    syncEcControl();
     renderHistory();
     render();
   }

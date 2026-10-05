@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gerador de QR Code · Grátis, rápido e privado</title>
-  <meta name="description" content="Crie QR Codes de links, textos e Wi-Fi em segundos. Personalize cores e estilo, baixe em PNG ou SVG. Tudo acontece no seu navegador.">
-  <meta name="theme-color" content="#5b3df5">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%235b3df5'/%3E%3Cpath fill='white' d='M7 7h7v7H7zM18 7h7v7h-7zM7 18h7v7H7zM18 18h3v3h-3zM22 22h3v3h-3zM18 24h2v1h-2z'/%3E%3C/svg%3E">
+  <title>Gerador de QR Code</title>
+  <meta name="description" content="Gere QR Codes de links, textos e redes Wi-Fi. Escolha as cores, coloque um logo no centro e baixe em PNG ou SVG. Tudo é feito no seu navegador.">
+  <meta name="theme-color" content="#f3efe6">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2316140f'/%3E%3Cpath fill='%23e04a1d' d='M6 6h8v8H6z'/%3E%3Cpath fill='%23f3efe6' d='M18 6h8v8h-8zM6 18h8v8H6zM18 18h4v4h-4zM24 24h2v2h-2zM18 24h2v2h-2z'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
   <script>
     // aplica o tema salvo antes de pintar a tela, para não piscar
@@ -16,75 +16,62 @@
 <body>
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
 
-  <header class="topbar">
-    <div class="container topbar__inner">
+  <header class="top">
+    <div class="wrap top__in">
       <a class="brand" href="./" aria-label="Gerador de QR Code, página inicial">
-        <span class="brand__mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3zM14 19h2v2h-2z"/></svg>
-        </span>
-        <span class="brand__name">QR<strong>Studio</strong></span>
+        <svg class="brand__mark" viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+          <rect width="32" height="32" rx="7" fill="currentColor"/>
+          <path fill="var(--accent)" d="M6 6h8v8H6z"/>
+          <path fill="var(--paper)" d="M18 6h8v8h-8zM6 18h8v8H6zM18 18h4v4h-4zM24 24h2v2h-2zM18 24h2v2h-2z"/>
+        </svg>
+        <span>Gerador de QR Code</span>
       </a>
-      <button class="icon-btn" id="themeToggle" type="button" aria-label="Alternar entre tema claro e escuro">
-        <svg class="icon-moon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-        <svg class="icon-sun" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-      </button>
+      <button class="text-btn" id="themeToggle" type="button" aria-label="Alternar entre tema claro e escuro">Tema escuro</button>
     </div>
   </header>
 
-  <main id="conteudo" class="container">
+  <main id="conteudo" class="wrap">
     <section class="hero">
-      <p class="eyebrow">Grátis · Sem cadastro · Privado</p>
-      <h1>Crie QR Codes em segundos</h1>
-      <p class="hero__lead">Digite, personalize e baixe. O QR Code é gerado no seu navegador, então nada do que você escreve é enviado para a internet.</p>
+      <h1>QR Codes com a sua cara, prontos para imprimir.</h1>
+      <p class="hero__lead">Escreva o link, escolha as cores, ponha seu logo no meio e baixe. O que você digita e a imagem do logo ficam no seu computador: nada é enviado.</p>
     </section>
 
     <div class="layout">
-      <!-- COLUNA ESQUERDA: formulário -->
-      <div class="stack">
-        <section class="card card--content" aria-labelledby="h-conteudo">
-          <header class="card__head">
-            <span class="step" aria-hidden="true">1</span>
-            <div>
-              <h2 id="h-conteudo">Conteúdo</h2>
-              <p class="muted">O que o QR Code vai abrir quando for escaneado?</p>
-            </div>
+      <!-- formulário -->
+      <form class="form" id="form" onsubmit="return false" novalidate>
+
+        <section class="sec" aria-labelledby="h-conteudo">
+          <header class="sec__head">
+            <h2 id="h-conteudo">Conteúdo</h2>
+            <p>O que o QR Code abre quando alguém escaneia.</p>
           </header>
 
           <div class="tabs" role="tablist" aria-label="Tipo de conteúdo">
-            <button class="tab" role="tab" id="tab-url" aria-selected="true" aria-controls="panel-url" data-type="url" type="button">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.7-1.7"/></svg>
-              Link
-            </button>
-            <button class="tab" role="tab" id="tab-text" aria-selected="false" aria-controls="panel-text" data-type="text" tabindex="-1" type="button">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg>
-              Texto
-            </button>
-            <button class="tab" role="tab" id="tab-wifi" aria-selected="false" aria-controls="panel-wifi" data-type="wifi" tabindex="-1" type="button">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a15 15 0 0 1 20 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg>
-              Wi-Fi
-            </button>
+            <button class="tab" role="tab" id="tab-url" aria-selected="true" aria-controls="panel-url" data-type="url" type="button">Link</button>
+            <button class="tab" role="tab" id="tab-text" aria-selected="false" aria-controls="panel-text" data-type="text" tabindex="-1" type="button">Texto</button>
+            <button class="tab" role="tab" id="tab-wifi" aria-selected="false" aria-controls="panel-wifi" data-type="wifi" tabindex="-1" type="button">Wi-Fi</button>
           </div>
 
-          <div class="panel" role="tabpanel" id="panel-url" aria-labelledby="tab-url">
+          <div role="tabpanel" id="panel-url" aria-labelledby="tab-url">
             <div class="field">
               <label for="url">Endereço do site</label>
               <input id="url" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="meusite.com.br" aria-describedby="url-hint url-error">
-              <p class="hint" id="url-hint">Pode digitar sem <code>https://</code>, a gente completa para você.</p>
+              <p class="hint" id="url-hint">Pode digitar sem <code>https://</code>; ele é completado sozinho.</p>
               <p class="error" id="url-error" role="alert" hidden></p>
             </div>
           </div>
 
-          <div class="panel" role="tabpanel" id="panel-text" aria-labelledby="tab-text" hidden>
+          <div role="tabpanel" id="panel-text" aria-labelledby="tab-text" hidden>
             <div class="field">
               <label for="text">Texto</label>
-              <textarea id="text" rows="4" maxlength="1000" placeholder="Escreva uma mensagem, um número de telefone, um endereço..." aria-describedby="text-count"></textarea>
+              <textarea id="text" rows="4" maxlength="1000" placeholder="Uma mensagem, um telefone, um endereço…" aria-describedby="text-count"></textarea>
               <p class="hint hint--right" id="text-count">0 / 1000</p>
             </div>
           </div>
 
-          <div class="panel" role="tabpanel" id="panel-wifi" aria-labelledby="tab-wifi" hidden>
+          <div role="tabpanel" id="panel-wifi" aria-labelledby="tab-wifi" hidden>
             <div class="field">
-              <label for="wifi-ssid">Nome da rede (SSID)</label>
+              <label for="wifi-ssid">Nome da rede</label>
               <input id="wifi-ssid" type="text" autocomplete="off" placeholder="Minha Casa 5G">
             </div>
             <div class="field">
@@ -108,13 +95,10 @@
           </div>
         </section>
 
-        <section class="card card--look" aria-labelledby="h-visual">
-          <header class="card__head">
-            <span class="step" aria-hidden="true">2</span>
-            <div>
-              <h2 id="h-visual">Aparência</h2>
-              <p class="muted">Deixe com a cara do seu projeto, sem perder a leitura.</p>
-            </div>
+        <section class="sec" aria-labelledby="h-visual">
+          <header class="sec__head">
+            <h2 id="h-visual">Aparência</h2>
+            <p>Cores e formato. Mantenha o contraste alto para ler bem.</p>
           </header>
 
           <fieldset class="group">
@@ -126,8 +110,8 @@
             <div class="field">
               <label for="fg">Cor do QR Code</label>
               <div class="color">
-                <input id="fg" type="color" value="#1e1b4b">
-                <output id="fg-out" for="fg">#1E1B4B</output>
+                <input id="fg" type="color" value="#16140f">
+                <output id="fg-out" for="fg">#16140F</output>
               </div>
             </div>
             <div class="field">
@@ -141,67 +125,123 @@
           <p class="notice" id="contrast-notice" role="status" hidden></p>
 
           <fieldset class="group">
-            <legend>Estilo dos pontos</legend>
-            <div class="styles" role="radiogroup" aria-label="Estilo dos pontos">
-              <label class="style-opt">
+            <legend>Formato dos pontos</legend>
+            <div class="choices choices--3" role="radiogroup" aria-label="Formato dos pontos">
+              <label class="choice">
                 <input type="radio" name="style" value="square">
-                <span class="style-opt__box">
-                  <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><g fill="currentColor"><rect x="4" y="4" width="14" height="14"/><rect x="22" y="4" width="14" height="14"/><rect x="4" y="22" width="14" height="14"/><rect x="22" y="22" width="14" height="14"/></g></svg>
+                <span class="choice__box">
+                  <svg viewBox="0 0 28 28" width="30" height="30" aria-hidden="true"><g fill="currentColor"><rect x="3" y="3" width="10" height="10"/><rect x="15" y="3" width="10" height="10"/><rect x="3" y="15" width="10" height="10"/><rect x="15" y="15" width="10" height="10"/></g></svg>
                   Quadrado
                 </span>
               </label>
-              <label class="style-opt">
+              <label class="choice">
                 <input type="radio" name="style" value="rounded" checked>
-                <span class="style-opt__box">
-                  <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><g fill="currentColor"><rect x="4" y="4" width="14" height="14" rx="5"/><rect x="22" y="4" width="14" height="14" rx="5"/><rect x="4" y="22" width="14" height="14" rx="5"/><rect x="22" y="22" width="14" height="14" rx="5"/></g></svg>
+                <span class="choice__box">
+                  <svg viewBox="0 0 28 28" width="30" height="30" aria-hidden="true"><g fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="3.5"/><rect x="15" y="3" width="10" height="10" rx="3.5"/><rect x="3" y="15" width="10" height="10" rx="3.5"/><rect x="15" y="15" width="10" height="10" rx="3.5"/></g></svg>
                   Arredondado
                 </span>
               </label>
-              <label class="style-opt">
+              <label class="choice">
                 <input type="radio" name="style" value="dots">
-                <span class="style-opt__box">
-                  <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><g fill="currentColor"><circle cx="11" cy="11" r="7"/><circle cx="29" cy="11" r="7"/><circle cx="11" cy="29" r="7"/><circle cx="29" cy="29" r="7"/></g></svg>
+                <span class="choice__box">
+                  <svg viewBox="0 0 28 28" width="30" height="30" aria-hidden="true"><g fill="currentColor"><circle cx="8" cy="8" r="5"/><circle cx="20" cy="8" r="5"/><circle cx="8" cy="20" r="5"/><circle cx="20" cy="20" r="5"/></g></svg>
                   Pontos
                 </span>
               </label>
             </div>
           </fieldset>
+        </section>
 
+        <section class="sec" aria-labelledby="h-logo">
+          <header class="sec__head">
+            <h2 id="h-logo">Logo no centro</h2>
+            <p>Opcional. Coloque uma marca ou uma foto no meio do QR Code.</p>
+          </header>
+
+          <div class="logo" id="logo-area">
+            <input id="logo-file" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml">
+            <label class="drop" id="logo-drop" for="logo-file">
+              <svg class="drop__icon" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-8 8"/></svg>
+              <span class="drop__main">Escolher imagem</span>
+              <span class="drop__sub">ou arraste um arquivo até aqui · PNG, JPG, SVG ou WebP</span>
+            </label>
+
+            <div class="logo__file" id="logo-file-row" hidden>
+              <img class="logo__thumb" id="logo-thumb" alt="Miniatura do logo escolhido" width="48" height="48">
+              <div class="logo__meta">
+                <strong id="logo-name">logo.png</strong>
+                <span class="muted" id="logo-dim"></span>
+              </div>
+              <button class="text-btn" id="logo-remove" type="button">Remover</button>
+            </div>
+            <p class="error" id="logo-error" role="alert" hidden></p>
+
+            <div class="logo__opts" id="logo-opts" hidden>
+              <div class="field">
+                <label for="logo-size">Tamanho do logo <output id="logo-size-out" for="logo-size">20%</output></label>
+                <input id="logo-size" type="range" min="10" max="28" step="1" value="20">
+              </div>
+
+              <fieldset class="group">
+                <legend>Formato</legend>
+                <div class="choices choices--3" role="radiogroup" aria-label="Formato do logo">
+                  <label class="choice choice--sm"><input type="radio" name="logoshape" value="rounded" checked><span class="choice__box">Arredondado</span></label>
+                  <label class="choice choice--sm"><input type="radio" name="logoshape" value="circle"><span class="choice__box">Círculo</span></label>
+                  <label class="choice choice--sm"><input type="radio" name="logoshape" value="square"><span class="choice__box">Quadrado</span></label>
+                </div>
+              </fieldset>
+
+              <fieldset class="group">
+                <legend>Encaixe da imagem</legend>
+                <div class="choices choices--2" role="radiogroup" aria-label="Encaixe da imagem">
+                  <label class="choice choice--sm"><input type="radio" name="logofit" value="cover" checked><span class="choice__box">Preencher</span></label>
+                  <label class="choice choice--sm"><input type="radio" name="logofit" value="contain"><span class="choice__box">Mostrar inteira</span></label>
+                </div>
+                <p class="hint">“Preencher” corta as bordas; use “Mostrar inteira” para logotipos com texto.</p>
+              </fieldset>
+
+              <p class="notice notice--info" id="logo-note">A resistência a danos foi ajustada para <strong>máxima</strong> para compensar a área coberta pelo logo.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="sec sec--last">
           <details class="advanced">
             <summary>Opções avançadas</summary>
             <div class="field">
-              <label for="size">Tamanho da imagem <output id="size-out" for="size">512 px</output></label>
-              <input id="size" type="range" min="256" max="2048" step="64" value="512">
-              <p class="hint">Para imprimir, prefira 1024 px ou mais.</p>
+              <label for="size">Tamanho da imagem <output id="size-out" for="size">1024 px</output></label>
+              <input id="size" type="range" min="256" max="2048" step="64" value="1024">
+              <p class="hint">Para imprimir, use 1024 px ou mais. O SVG não perde qualidade em nenhum tamanho.</p>
             </div>
             <div class="field">
               <label for="ec">Resistência a danos</label>
               <select id="ec">
-                <option value="L">Baixa (7%): QR mais simples</option>
-                <option value="M" selected>Média (15%): recomendado</option>
+                <option value="L">Baixa (7%)</option>
+                <option value="M" selected>Média (15%)</option>
                 <option value="Q">Alta (25%)</option>
-                <option value="H">Máxima (30%): QR mais denso</option>
+                <option value="H">Máxima (30%)</option>
               </select>
-              <p class="hint">Quanto maior, mais o QR Code ainda funciona se for riscado ou sujo.</p>
+              <p class="hint" id="ec-hint">Quanto maior, mais o QR Code ainda funciona se for riscado ou sujo, mas ele fica mais denso.</p>
             </div>
           </details>
         </section>
-      </div>
+      </form>
 
-      <!-- COLUNA DIREITA: prévia -->
+      <!-- prévia -->
       <aside class="preview" aria-labelledby="h-preview">
-        <div class="card card--preview">
-          <header class="preview__head">
+        <div class="pv">
+          <div class="pv__head">
             <h2 id="h-preview">Pré-visualização</h2>
-            <span class="chip" id="chip-status">Aguardando</span>
-          </header>
+            <span class="status" id="chip-status" data-state="idle">Aguardando</span>
+          </div>
 
           <div class="stage" id="stage">
-            <canvas id="canvas" width="320" height="320" role="img" aria-label="Pré-visualização do QR Code" hidden></canvas>
+            <i class="crop crop--tl" aria-hidden="true"></i><i class="crop crop--tr" aria-hidden="true"></i>
+            <i class="crop crop--bl" aria-hidden="true"></i><i class="crop crop--br" aria-hidden="true"></i>
+            <canvas id="canvas" width="320" height="320" role="img" aria-label="Pré-visualização do QR Code"></canvas>
             <div class="empty" id="empty">
-              <svg viewBox="0 0 64 64" width="56" height="56" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="18" height="18" rx="3"/><rect x="38" y="8" width="18" height="18" rx="3"/><rect x="8" y="38" width="18" height="18" rx="3"/><path d="M38 38h6v6h-6zM50 38h6M38 50h6M50 50h6v6M44 56v-6"/></svg>
               <p><strong>Seu QR Code aparece aqui</strong></p>
-              <p class="muted">Preencha o conteúdo ao lado e ele é criado na hora.</p>
+              <p>Comece digitando o endereço do site.</p>
             </div>
             <p class="error error--stage" id="gen-error" role="alert" hidden></p>
           </div>
@@ -215,32 +255,29 @@
           </div>
 
           <div class="actions">
-            <button class="btn btn--primary" id="dl-png" type="button" disabled>
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
-              Baixar PNG
-            </button>
+            <button class="btn btn--primary" id="dl-png" type="button" disabled>Baixar PNG</button>
             <div class="actions__row">
-              <button class="btn btn--secondary" id="dl-svg" type="button" disabled>Baixar SVG</button>
-              <button class="btn btn--secondary" id="copy" type="button" disabled>Copiar imagem</button>
+              <button class="btn btn--ghost" id="dl-svg" type="button" disabled>Baixar SVG</button>
+              <button class="btn btn--ghost" id="copy" type="button" disabled>Copiar imagem</button>
             </div>
           </div>
-          <p class="hint hint--center">Dica: teste escaneando com o celular antes de imprimir.</p>
+          <p class="pv__hint" id="scan-hint">Escaneie com o celular antes de imprimir.</p>
         </div>
 
-        <section class="card card--history" id="history-card" aria-labelledby="h-hist" hidden>
-          <header class="preview__head">
+        <section class="history" id="history-card" aria-labelledby="h-hist" hidden>
+          <div class="history__head">
             <h2 id="h-hist">Recentes</h2>
-            <button class="link-btn" id="clear-history" type="button">Limpar</button>
-          </header>
-          <ul class="history" id="history"></ul>
+            <button class="text-btn" id="clear-history" type="button">Limpar</button>
+          </div>
+          <ul class="history__list" id="history"></ul>
         </section>
       </aside>
     </div>
   </main>
 
-  <footer class="footer">
-    <div class="container">
-      <p>Feito com HTML, CSS e JavaScript. Seus dados ficam só no seu navegador.</p>
+  <footer class="foot">
+    <div class="wrap">
+      <p>Código aberto no <a href="https://github.com/Guilhermeoliveira2938/qr-studio">GitHub</a>.</p>
     </div>
   </footer>
 
